@@ -1,5 +1,5 @@
 /*
- * Soubor:  	seznam.c
+ * Soubor:  	proj4.c
  * Datum:   	13.12.2011
  * Autor:   	Tomas Valek, xvalek02@stud.fit.vutbr.cz
  * Projekt: 	Ceske razeni, projekt c. 4 pro predmet IZP
