@@ -1,7 +1,7 @@
 Czech Sorting in C language by standard CSN976030
 =======
 
-Program reads lines from input file and save sorted output file. Sorting is
+Program reads lines from input file and save sorted output file. Two-ways sorting is
 by standard CSN976030. Blank lines are skips.
 
 Installation:

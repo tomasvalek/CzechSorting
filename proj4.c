@@ -4,7 +4,7 @@
  * Author:   	Tomas Valek, xvalek02@stud.fit.vutbr.cz
  * Project: 	Czech sorting, project n. 4 IZP subject.
  * Desc.:   	Program reads lines from input file and save sorted output file.
-				Sorting is by standard CSN976030. Blank lines are skips.
+				Two-ways sorting is by standard CSN976030. Blank lines are skips.
  * EXTRA:		Usort. Viz. help (-h).
 */
 
