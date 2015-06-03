@@ -1,40 +1,39 @@
 /*
- * Soubor:  	proj4.c
- * Datum:   	13.12.2011
- * Autor:   	Tomas Valek, xvalek02@stud.fit.vutbr.cz
- * Projekt: 	Ceske razeni, projekt c. 4 pro predmet IZP
- * Popis:   	Program cte radky ze vstupniho souboru a serazene je zapise do 
-				vystupniho soboru. Razeni je provedeno podle normy CSN976030.
- * Podprogramy: Soucasti programu je 15 podprogramu.
- * EXTRA:		Usort. Viz. napoveda.
+ * File:	  	proj4.c
+ * Date:   		13.12.2011
+ * Author:   	Tomas Valek, xvalek02@stud.fit.vutbr.cz
+ * Project: 	Czech sorting, project n. 4 IZP subject.
+ * Desc.:   	Program reads lines from input file and save sorted output file.
+				Sorting is by standard CSN976030. Blank lines are skips.
+ * EXTRA:		Usort. Viz. help (-h).
 */
 
-#include <stdio.h>	//vstup, vystup
+#include <stdio.h>	//standard input/output library functions
 #include <string.h> //strcmp
-#include <stdlib.h>	//obecne funkce jazyka C, EXIT_SUCCESS a EXIT_FAILURE
+#include <stdlib.h>	//general funciton of language C
 #include <stdbool.h>
 #include <assert.h>
 #include <wchar.h>
 #include <locale.h>
 #include <stdbool.h>
 #include <errno.h>
-#include <time.h>	//pro testovaní u alokaci
+#include <time.h>	//for testing
 
-#define	ZNAK_ch	L'@'
-#define ZNAK_Ch L'^'
-#define ZNAK_CH L'_'
-#define DAVKA	32
-#define VETSI	1
-#define MENSI	-1
-#define ROVNO	0
+#define	CHAR_ch	L'@'
+#define CHAR_Ch L'^'
+#define CHAR_CH L'_'
+#define BULK	32
+#define GREATER	1
+#define LESS	-1
+#define EQUALS	0
 #define USORT	2
 
-#define DIAG 0	//slouzi pro zapnuti diagnostickych vypisu
+#define DIAG 0	//enable/disable testing message
 
-const int tabulka1[] = {
-//Primarni tabulka
-//v poli na indexu A je takova hodnota
-//to L co dáme před 'a' nam rika, ze to nebude 8bitovy znak, ale siroky znak
+const int table1[] = {
+//Primary table
+//in array on index A is value ...
+//L on left side == not 8bit char, but at least 32bit
 	[L'\0'] = 0,
 	[L' '] = 1,
 	[L'A'] = 2, [L'a'] = 2,	/*Á*/ [L'\u00C1'] = 2, /*á*/ [L'\u00E1'] = 2,		
@@ -46,7 +45,7 @@ const int tabulka1[] = {
 	[L'F'] = 8, [L'f'] = 8,
 	[L'G'] = 9, [L'g'] = 9,
 	[L'H'] = 10, [L'h'] = 10,
-	[ZNAK_Ch] = 11, [ZNAK_ch] = 11, [ZNAK_CH] = 11,
+	[CHAR_Ch] = 11, [CHAR_ch] = 11, [CHAR_CH] = 11,
 	[L'I'] = 12, [L'i'] = 12, /*Í*/ [L'\u00CD'] = 12, /*í*/ [L'\u00ED'] = 12,
 	[L'J'] = 13, [L'j'] = 13,
 	[L'K'] = 14, [L'k'] = 14,
@@ -75,10 +74,8 @@ const int tabulka1[] = {
 	[L'='] = 67, [L'+'] = 68, [L'×'] = 69, [L'*'] = 70, [L'#'] = 71, [L'~'] = 72,
 };
 
-const int tabulka2[] = {
-//Sekundarni tabulka
-//v poli na indexu A je takova hodnota
-//to L co dáme před 'a' nam rika, ze to nebude 8bitovy znak, ale siroky znak
+const int table2[] = {
+//secondary table
 	[L'\0'] = 0,
 	[L' '] = 1,
 	[L'A'] = 2, [L'a'] = 2,	/*Á*/ [L'\u00C1'] = 3, /*á*/ [L'\u00E1'] = 3,		
@@ -90,7 +87,7 @@ const int tabulka2[] = {
 	[L'F'] = 12, [L'f'] = 12,
 	[L'G'] = 13, [L'g'] = 13,
 	[L'H'] = 14, [L'h'] = 14,
-	[ZNAK_Ch] = 15, [ZNAK_ch] = 15, [ZNAK_CH] = 15,
+	[CHAR_Ch] = 15, [CHAR_ch] = 15, [CHAR_CH] = 15,
 	[L'I'] = 16, [L'i'] = 16, /*Í*/ [L'\u00CD'] = 17, /*í*/ [L'\u00ED'] = 17,
 	[L'J'] = 18, [L'j'] = 18,
 	[L'K'] = 19, [L'k'] = 19,
@@ -119,185 +116,184 @@ const int tabulka2[] = {
 	[L'='] = 78, [L'+'] = 79, [L'×'] = 80, [L'*'] = 81, [L'#'] = 82, [L'~'] = 83,
 };
 
-typedef struct polozka Tpolozka;
+typedef struct item Titem;
 
-struct polozka {
-	wchar_t* uk_na_jmeno;	//ukazatel do na jednorozmerne pole wcharu
-	Tpolozka* nasledujici;	//nasledujici je ukazatel na dalsi polozku
+struct item {
+	wchar_t* pointerToName;	//pointer to wchar_t array
+	Titem* next;			//pointer to next item
 };
 
 typedef struct {
-	Tpolozka* prvni;	//ukazatel seznamu na prvni polozku v seznamu
-} Tseznam;
+	Titem* first;			//pointer to first item in list
+} Tlist;
 
 typedef struct {
-//Struktura pro retezec
-	wchar_t* retezec;
-	int alok_vel;
-	int delka;
-}Tstring;
+//struct for string
+	wchar_t* string;		//pointer to string
+	int size;				//size
+	int length;				//length
+} Tstring;
 
-//CHYBOVE STAVY:
+//ERROR STATE:
 enum ERROR {
-	ERR_PARAM = 0,
-	ERR_MALLOC,
-	ERR_SOUBOR,
-	ERR_LOCALE,
+	ERROR_PARAM = 0,
+	ERROR_MALLOC,
+	ERROR_FILE,
+	ERROR_LOCALE,
 };
 
-char *chybove_zpravy [] = {
-	//CHYBA_PARAM:
-	"Chyba v parametru.\n",
+char *errorMessages [] = {
+	//ERR_PARAM:
+	"Params are not valid.\n",
 	//ERR_MALLOC
-	"Nepovedlo se alokovat pamet.\n",
-	//ERR_SOUBOR
-	"Chyba pri praci se souborem.\n",
+	"Error allocate memory.\n",
+	//ERR_FILE
+	"Error with file.\n",
 	//ERR_LOCALE
-	"Chyba funkce setlocale.\n",
+	"Setlocale fail.\n",
 };
 
 
-//STAVOVE KODY PROGRAMU:
-enum stav {
-	CHYBA_LOCALE = -5,
-	CHYBA = -4,
-	CHYBA_SOUBOR = -3,
-	CHYBA_PARAM = -2,
-	CHYBA_MALLOC = -1,
-	PARAM_NAPOVEDA = 0,
+//STATE CODE:
+enum enumState {
+	ERR_LOCALE = -5,
+	ERR = -4,
+	ERR_FILE = -3,
+	ERR_PARAM = -2,
+	ERR_MALLOC = -1,
+	PARAM_HELP = 0,
 	PARAM_LOCALE,
-	PARAM_BEZ_LOCALE,
+	PARAM_WITHOUT_LOCALE,
 	PARAM_USORT,
 	PARAM_LOCALE_USORT,
 };
 
-//NAPOVEDA:
-char NAPOVEDA[] =
-"\nProgram projekt4-Ceske razeni.\n"
-"Autor: Tomas Valek.\n"
-"Datum: 13.12.2011.\n"
-"Program nacte radky ze vstupniho souboru a serazene podle normy CSN976030 je \
-vypise do souboru. Prazdne radky preskakuje.\n"
-"Pouziti: -h\n"
-"		[--loc LOCALE]\n"
-"		 [--usort]\n"
-"Popis parametru:\n\
--h\tVypise tuto obrazovku s napovedou.\n\
-[--loc LOCALE]\tJe nepovinny parametr, ktery reprezentuje znakovou sadu.\n\
-./proj4 [--loc LOCALE] soubor1.txt soubor2.txt\n\
-		[--usort]\t Je nepovinny parametr, ktery provede unikatni sort.\
- Tento parametr se zadava jako posledni.\n";
+//HELP:
+char HELP[] =
+"\nProject number 4 -- Czech sorting by CSN976030.\n"
+"Author: Tomas Valek.\n"
+"Date: 13.12.2011.\n"
+"Program reads lines from input file and save sorted output file.\
+Sorting is by standard CSN976030. Blank lines are skips.\n"
+"Use: -h [--loc LOCALE] input output [--usort] \n"
+"Parameter description:\n\
+-h For help.\n\
+[--loc LOCALE] For charset.\n\
+[--usort] For Unique sort.\n"
+"./proj4 [--loc LOCALE] input output [--usort] \n";
 
-//PROTOTYPY:
+//PROTOTYPES:
 int main( int argc, char* argv[] );
-int inicializuj_string(Tstring* str);
-int pridej_znak( wchar_t znak, Tstring* str );
-int orizni_pole(Tstring* str);
-int zkontroluj_parametry( int argc, char* argv[] );
-int vloz_prvni(Tpolozka polozka, Tseznam* seznam, Tstring str);
-int porovnej(wchar_t* a, wchar_t* b);
-void zarad(Tseznam* seznam, int usort);
-int nacti_radek(FILE* fr, Tseznam* seznam, Tstring* str);
-int nacti_a_serad_seznam(char soubor[], Tseznam* s, int usort);
-void vymaz_seznam(Tseznam* seznam);
-void zpracuj_chybu(int co, Tseznam* s, FILE* f);
-int otevri_soubor(FILE** popisovac, char* nazev,char* rezim);
-int zavri_soubor(FILE* popisovac);
-int vypis_seznam(char* argv, Tseznam* s);
+int allocString(Tstring* str);
+int addChar( wchar_t character, Tstring* str );
+int alignArray(Tstring* str);
+int checkParams( int argc, char* argv[] );
+int putFirst(Titem item, Tlist* list, Tstring str);
+int compare(wchar_t* a, wchar_t* b);
+void classItem(Tlist* list, int usort);
+int readLine(FILE* fr, Tlist* list, Tstring* str);
+int readAndSortList(char file[], Tlist* s, int usort);
+void removeList(Tlist* list);
+void processError(int what, Tlist* s, FILE* f);
+int openFile(FILE** fd, char* name, char* mode);
+int closeFile(FILE* fd);
+int writeList(char* argv, Tlist* s);
 
-//***********************************FUNKCE************************************
+//***********************************FUNCTIONS**********************************
 
-int inicializuj_string(Tstring* str) {
-/*Funkce inicializuje string. Tzn. vytvori pro nej pamet velikosti 
-DAVKA(32bajtů).Funkce vraci chybu v pripade neprideleni pameti nebo 0 jako
- uspech.*/
+/*Initialize string. Allocate memory size:BULK(32bajtů).
+OK == EXIT_SUCCESS or error.*/
+int allocString(Tstring* str) {
 
-//Pro test:
-//str->retezec = rand() & 0x1 ? NULL : (wchar_t*)malloc(sizeof(wchar_t)*DAVKA);
+	//DEBUG
+	//str->string = rand() & 0x1 ? NULL : (wchar_t*)malloc(sizeof(wchar_t)*BULK);
 
-	//if ( str->retezec == NULL )
-	if ( (str->retezec = (wchar_t*)malloc(sizeof(wchar_t)*DAVKA)) == NULL )	{
-	//pokud se alokace nepodarila
-		return CHYBA_MALLOC;
+	//DEBUG
+	//if ( str->string == NULL )
+	if ( (str->string = (wchar_t*)malloc(sizeof(wchar_t)*BULK)) == NULL )	{
+	//malloc fail
+		return ERR_MALLOC;
 	}
 
-	str->retezec[0] = L'\0';
-	str->alok_vel = DAVKA;
-	str->delka = 0;
+	str->string[0] = L'\0';
+	str->size = BULK;
+	str->length = 0;
 
 	return EXIT_SUCCESS;
 }
 
-int pridej_znak( wchar_t znak, Tstring* str ){ 
-/*Funkce zkontroluje zda nedosla pamet a prida na konec retezce 1 znak.
- Pokud dosla prialokuje. Funkce vraci chybu malloc nebo konci uspechem 0.*/
+/* Check is it has more memory, and add 1 char to end of string. If program
+has low memory, it malloc more.
+OK == EXIT_SUCCESS or ERR_MALLOC.*/
+int addChar( wchar_t character, Tstring* str ){ 
 
-	if ( str->delka + 1 >= str->alok_vel  )
-	{//dosla pamet pro string, musime reallokovat
+	if ( str->length + 1 >= str->size  ){ //low memory
 #if DIAG
-		wprintf(L"Prialokuji\n");
+		wprintf(L"Realloc\n");
 #endif
-		wchar_t* realloc_address = NULL;
+		wchar_t* reallocAddress = NULL;
 
-//Pro test:
-/*realloc_address = rand() & 0x1 ? NULL : (wchar_t*)realloc(str->retezec,\
-sizeof(wchar_t)*str->alok_vel*2 );*/
+		//DEBUG:
+		/*reallocAddress = rand() & 0x1 ? NULL : (wchar_t*)realloc(str->string,\
+		sizeof(wchar_t)*str->size*2 );*/
 
-		if ( (realloc_address = (wchar_t*)realloc(str->retezec,sizeof(wchar_t)\
-				*str->alok_vel*2 )) == NULL )
-		//if ( realloc_address == NULL )
-		{
-			free((void*)str->retezec);
-			str->retezec = NULL;
-			return CHYBA_MALLOC;
+		if ( (reallocAddress = (wchar_t*)realloc(str->string,sizeof(wchar_t)\
+				*str->size*2 )) == NULL ) {
+		//DEBUG
+		//if ( reallocAddress == NULL )
+		
+			free((void*)str->string);
+			str->string = NULL;
+			return ERR_MALLOC;
 		}
 
-		str->alok_vel = str->alok_vel*2;	//upravime delku stringu
-		str->retezec = realloc_address;		//predame adresu
+		str->size = str->size*2;			//2x more memory
+		str->string = reallocAddress;		//save pointer
 	}
 
-	//pridavame znak do stringu:
-	str->retezec[str->delka] = znak;
-	str->delka++;
-	str->retezec[str->delka] = L'\0';
+	//add char to string
+	str->string[str->length] = character;
+	str->length++;
+	str->string[str->length] = L'\0';
 
 	return EXIT_SUCCESS;
 }
 
-int orizni_pole(Tstring* str) {
-//Oriznuti pole na presnou velikost. Vraci bud novou velikost nebo CHYBA_MALLOC
-
-	wchar_t* realloc_address = NULL;
-
-//Pro test:
-/*realloc_address = rand() & 0x1 ? NULL : (wchar_t*)realloc(str->retezec,\
-sizeof(wchar_t)*(str->delka+1));*/
-
-	if ( (realloc_address = (wchar_t*)realloc(str->retezec,sizeof(wchar_t)\
-		*(str->delka+1))) == NULL )
-//	if ( realloc_address == NULL )
-	{
-		free((void*)str->retezec);
-		str->retezec = NULL;
-		return CHYBA_MALLOC;
-	}
-
-	str->alok_vel = str->delka;			//upravime delku stringu
-	str->retezec = realloc_address;		//predame adresu
-
-	return EXIT_SUCCESS;
-}
-
-int zkontroluj_parametry( int argc, char* argv[] ){
-/*Funkce zkontroluje parametry a vrati jaky prikaz bude zavolan. Pripadne vrati
- chybu.
+/* Align array to specific size.
+Return new size or ERR_MALLOC.
 */
+int alignArray(Tstring* str) {
+
+	wchar_t* reallocAddress = NULL;
+
+	//DEBUG
+	/*reallocAddress = rand() & 0x1 ? NULL : (wchar_t*)realloc(str->string,\
+	sizeof(wchar_t)*(str->length+1));*/
+
+	if ( (reallocAddress = (wchar_t*)realloc(str->string,sizeof(wchar_t)\
+		*(str->length+1))) == NULL ) {
+//	if ( reallocAddress == NULL )
+	
+		free((void*)str->string);
+		str->string = NULL;
+		return ERR_MALLOC;
+	}
+
+	str->size = str->length;			//change string length
+	str->string = reallocAddress;		//save pointer
+
+	return EXIT_SUCCESS;
+}
+
+/*Check params.*/
+int checkParams( int argc, char* argv[] ){
+
 	if ( argc == 2 ) {
 		if ( (strcmp("-h", argv[1])) == 0 )
-			return PARAM_NAPOVEDA;
+			return PARAM_HELP;
 	}
 	else if ( argc == 3 )
-		return PARAM_BEZ_LOCALE;
+		return PARAM_WITHOUT_LOCALE;
 	else if ( argc == 5 && ((strcmp("--loc", argv[1])) == 0) )
 		return PARAM_LOCALE;
 	else if ( argc == 4 && ((strcmp("--usort", argv[3])) == 0) )
@@ -306,505 +302,492 @@ int zkontroluj_parametry( int argc, char* argv[] ){
 			 ((strcmp("--usort", argv[5])) == 0) )
 		return PARAM_LOCALE_USORT;
 
-	return CHYBA_PARAM;
+	return ERR_PARAM;
 }
 
-int vloz_prvni(Tpolozka polozka, Tseznam* seznam, Tstring str) {
-/*Funkce naalokuje v pameti misto pro polozku a vlozi ji na zacatek seznamu.
-Vraci bud chybu pri alokaci nebo konci EXIT_SUCCESS.*/
+/* Allocate memory for first item and put to list.
+OK == EXIT_SUCCESS or error.*/
+int putFirst(Titem item, Tlist* list, Tstring str) {
 
-	assert( seznam != NULL );
+	assert( list != NULL );
 
-	Tpolozka* nova_polozka;
+	Titem* newItem;
 
-//Pro test
-//nova_polozka = rand() & 0x1 ? NULL : malloc(sizeof(Tpolozka));
+	//DEBUG:
+	//newItem = rand() & 0x1 ? NULL : malloc(sizeof(Titem));
 
-	if ( (nova_polozka = malloc(sizeof(Tpolozka))) == NULL )
-	//if ( nova_polozka == NULL )
-		return CHYBA_MALLOC;
+	if ( (newItem = malloc(sizeof(Titem))) == NULL ){
+	//DEBUG:
+	//if ( newItem == NULL )
+		return ERR_MALLOC;
+	}
 
-	//do vytvoreneho mista v pameti s velikosti polozka si polozku vlozime:
-	*nova_polozka = polozka;
-	nova_polozka->nasledujici = seznam->prvni;
-	/*hlavicka seznamu ukazuje na aktualne vlozeny prvek, protoze vkladame
-	 vzdycky prvni:*/
-	seznam->prvni = nova_polozka;
-	nova_polozka->uk_na_jmeno = str.retezec;
+	//to created place in memory (size for item) add item:
+	*newItem = item;
+	newItem->next = list->first;
+	//list's header pointer to actual item:
+	list->first = newItem;
+	newItem->pointerToName = str.string;
 
 	return EXIT_SUCCESS;
 }
 
-int porovnej(wchar_t* a, wchar_t* b){
-/*Funkce porovnava po kazdem znaku dve pole. Pokud je a > b, tak vraci VETSI,
-pokud a < b, tak vraci MENSI, a == b vraci ROVNO.*/
+/* Compare two characters.
+If a > b, return GREATER,
+If a < b, return LESS,
+If a == b return EQUALS.*/
+int compare(wchar_t* a, wchar_t* b){
 
 	int i = 0;
 	int j = 0;
-	int mezera_a = 0;
-	int mezera_b = false;
-	int pruchod = 1;
+	int space_a = 0;
+	int space_b = 0;
+	int iterate = 1;
 
-	while( pruchod <= 2 ) {
-	//slouzi pouze pro prvni a druhy pruchod
-		while( a[i] != L'\0' && b[j] != L'\0' ) {
-		//Prochazime retezce dokud jeden z nich nedojde nakonec
-
-			//FIX MEZER:
-			if ( a[i] == L' ' ) {
-			//Pokud je znak mezera
-				++mezera_a;
-				if ( mezera_a > 1 )	{
-				//Pokud je za sebou uz vice mezer, bere se jako jedna
+	while( iterate <= 2 ) { //for first and second iterate
+	
+		while( a[i] != L'\0' && b[j] != L'\0' ) { //Compare strings until one of them ends
+		
+			//FIX SPACES FOR A:
+			if ( a[i] == L' ' ) { //char is space
+				++space_a;
+				if ( space_a > 1 )	{ //more chars are spaces
 					while( a[i] == L' ' )
-						++i;//preskakuji mezery
-					mezera_a = 0;
+						++i; //skip spaces
+					space_a = 0;
 					if ( a[i] == '\0' )
 						break;
 				}
-			} else
-				mezera_a = 0;
+			} else {
+				space_a = 0;
+			}
+
+			//FIX SPACES FOR B:
 			if ( b[j] == L' ' ) {
-				++mezera_b;
-				if ( mezera_b > 1 ) {
+				++space_b;
+				if ( space_b > 1 ) {
 					while( b[j] == L' ' )
 						++j;
-					mezera_b = 0;
+					space_b = 0;
 					if ( b[j] == '\0' )
 						break;
 				}
 			} else
-				mezera_b = 0;
-			//KONEC FIX MEZER
+				space_b = 0;
+			//end of skip space
 
-			if ( pruchod == 1 ) {//PRUCHOD 1
-				if ( tabulka1[a[i]] > tabulka1[b[j]] )
-					return VETSI; //prvni znak je vetsi jak druhy
-				else if ( tabulka1[a[i]] < tabulka1[b[j]] ) 
-					return MENSI; //prvni znak je mensi jak druhy
-				else {//znaky jsou stejne
+			if ( iterate == 1 ) { //ITERATE 1
+				if ( table1[a[i]] > table1[b[j]] )
+					return GREATER; //first char is greater then second
+				else if ( table1[a[i]] < table1[b[j]] ) 
+					return LESS; 	//first char is less then second
+				else {	//characters are equals
 					i++;
 					j++;
 				}
-			} else {//PRUCHOD 2
-				if ( tabulka2[a[i]] > tabulka2[b[j]] )
-					return VETSI;
-				else if ( tabulka2[a[i]] < tabulka2[b[j]] ) 
-					return MENSI;
-				else { //znaky jsou stejne
+			} else { //ITERATE 2
+				if ( table2[a[i]] > table2[b[j]] )
+					return GREATER;
+				else if ( table2[a[i]] < table2[b[j]] ) 
+					return LESS;
+				else { //characters are equals
 					i++;
 					j++;
 				}
 			}
 		}
 
-		if ( pruchod == 1 ) {//Napr. pro: Ábel, Abelard rozhodne az delka stringu
+		if ( iterate == 1 ) {//For example for: Ábel, Abelard decides to length string
 			if ( a[i] == L'\0' && b[j] != L'\0' )
-				return MENSI;
+				return LESS;
 			else if ( a[i] != L'\0' && b[j] == L'\0' )
-				return VETSI;
+				return GREATER;
 		}
 
-		++pruchod;
+		++iterate;
+
+		//Reset variables
 		i = 0;
 		j = 0;
-		mezera_a = 0;
-		mezera_b = 0;
+		space_a = 0;
+		space_b = 0;
 	}
 
-	return ROVNO;
+	return EQUALS;
 }
 
-void zarad(Tseznam* seznam, int usort){
-/*Funkce zaradi novou polozku do seznamu na spravne misto.*/
+/*Place new item to correct place in list.*/
+void classItem(Tlist* list, int usort){
 
-	Tpolozka* a = NULL;
-	Tpolozka* b = NULL;
-	Tpolozka* c = NULL;
+	Titem* a = NULL;
+	Titem* b = NULL;
+	Titem* c = NULL;
 
-	bool zmena = true;
-	int stav = 0;
+	bool changeFlag = true;
+	int state = 0;
 
-	while ( zmena == true ) {//Pokud se provedla nejaka zmena zkontroluj, zda je jeste neco k vymene
-		a = seznam->prvni;
+	while ( changeFlag == true ) {//if change is true -> check, whether it is something else to exchange
+		a = list->first;
 
-		if ( a->nasledujici == NULL )
-			return;	//neni co radit v seznamu je jen jedna polozka
+		if ( a->next == NULL )
+			return;	//list has only one item, nothing to exchange
 
-		//POUZE PRO PRVNI DVE JMENA:
-		zmena = false;
-		stav = 0;
+		//ONLY FOR FIRST TWO'S NAMES:
+		changeFlag = false;
+		state = 0;
 
-		a = seznam->prvni->nasledujici;
+		a = list->first->next;
 
-		stav = porovnej(seznam->prvni->uk_na_jmeno, a->uk_na_jmeno);
+		state = compare(list->first->pointerToName, a->pointerToName);
 
 #if DIAG
 		wprintf(L"----------------------------------------------------------\n");
-		wprintf(L"PRUCHOD1\n");
-		wprintf(L"seznam->prvni->uk_na_jmeno:\t%ls\n",seznam->prvni->uk_na_jmeno);
-		wprintf(L"a->uk_na_jmeno:\t\t\t%ls\n",a->uk_na_jmeno);
-		wprintf(L"Vysledek porovnani %d\n", stav);
+		wprintf(L"ITERATE 1\n");
+		wprintf(L"list->first->pointerToName:\t%ls\n",list->first->pointerToName);
+		wprintf(L"a->pointerToName:\t\t\t%ls\n",a->pointerToName);
+		wprintf(L"Result equals %d\n", state);
 		wprintf(L"----------------------------------------------------------\n");
 #endif
 
-		if ( usort == USORT && stav == ROVNO ) {
-		/*Pokud je povoleno unikatni razeni a polozky jsou si rovny, prvni
-		 odstranime*/
+		//If usort == true and items are equals, first item will be deleted
+		if ( usort == USORT && state == EQUALS ) {
 
-			Tpolozka* tmp = NULL;
-			tmp = seznam->prvni;
+			Titem* tmp = NULL;
+			tmp = list->first;
 
-			seznam->prvni = seznam->prvni->nasledujici;
+			list->first = list->first->next;
 
-			free(tmp->uk_na_jmeno);
+			free(tmp->pointerToName);
 			free(tmp);
-		} else if ( stav == VETSI ) {
-			/*prvni je vetsi nez druhy, tzn. musi se prehodit. Protoze se serazuje
-			 od mensich k vetsim A-Z.*/
+		} else if ( state == GREATER ) {
+			//first is greater than second item -> exchange it. Sorting is from less to great.
 #if DIAG
-			wprintf(L"Vymenuji\n");
+			wprintf(L"Changing\n");
 #endif
-			zmena = true;
+			changeFlag = true;
 
-			//prenastaveni ukazatelu
-			seznam->prvni->nasledujici = a->nasledujici;
-			a->nasledujici = seznam->prvni;
-			seznam->prvni = a;
+			//edit pointers
+			list->first->next = a->next;
+			a->next = list->first;
+			list->first = a;
 		}
 
 #if DIAG
 		wprintf(L"-------------------------\n");
-		for ( Tpolozka* tmp = seznam->prvni; tmp != NULL; tmp = tmp->nasledujici) {
-			//Kontrolni vypis jednosmerneho seznamu:
-			wprintf(L"%ls\n", tmp->uk_na_jmeno);
+		for ( Titem* tmp = list->first; tmp != NULL; tmp = tmp->next) {
+			//Show list
+			wprintf(L"%ls\n", tmp->pointerToName);
 		}
 		wprintf(L"-------------------------\n");
 #endif
 
-		if ( usort == USORT && a->nasledujici == NULL ) //kvuli usort
-			return;	//neni co radit v seznamu zbyla jen jedna polozka
+		if ( usort == USORT && a->next == NULL ) //usort
+			return;	//nothing to sort, we have only one item
 
-		//nastaveni ukazatelu na dalsi polozky
-		a = seznam->prvni;
-		b = a->nasledujici;
-		c = b->nasledujici;
+		//set pointer to next item
+		a = list->first;
+		b = a->next;
+		c = b->next;
 
-		while( c != NULL ) {//zkontrolujeme se zbytkem seznamu
+		while( c != NULL ) { //check with other list
 
-			stav = 0;
-			stav = porovnej(b->uk_na_jmeno, c->uk_na_jmeno);
+			state = 0;
+			state = compare(b->pointerToName, c->pointerToName);
 
 #if DIAG
 		wprintf(L"----------------------------------------------------------\n");
-		wprintf(L"PRUCHOD2\n");
-		wprintf(L"seznam->prvni->uk_na_jmeno:\t%ls\n",seznam->prvni->uk_na_jmeno);
-		wprintf(L"a->uk_na_jmeno:\t\t\t%ls\n",a->uk_na_jmeno);
-		wprintf(L"Vysledek porovnani %d\n", stav);
+		wprintf(L"ITERATE2\n");
+		wprintf(L"list->first->pointerToName:\t%ls\n",list->first->pointerToName);
+		wprintf(L"a->pointerToName:\t\t\t%ls\n",a->pointerToName);
+		wprintf(L"Result equals %d\n", state);
 		wprintf(L"----------------------------------------------------------\n");
 #endif			
 
-			if ( usort == USORT && stav == ROVNO ) {
-			/*Pokud je povoleno unikatni razeni a polozky jsou si rovny, prvni
-				 odstranime*/
+			//If usort == true and items are equals, first item will be deleted
+			if ( usort == USORT && state == EQUALS ) {
 
-				Tpolozka* tmp = NULL;
+				Titem* tmp = NULL;
 				tmp = b;
 
-				a->nasledujici = b->nasledujici;
+				a->next = b->next;
 
-				free(tmp->uk_na_jmeno);
+				free(tmp->pointerToName);
 				free(tmp);
 
-				a = a->nasledujici;
-				b = c->nasledujici;
+				a = a->next;
+				b = c->next;
 				if ( b == NULL )//usort
 					return;
-				c = c->nasledujici->nasledujici;
-			} else if ( stav == VETSI ) {
-			/*prvni je vetsi nez druhy, tzn. musi se prehodit. Protoze se 
-				serazuje od mensich k vetsim A-Z.*/
+				c = c->next->next;
+			} else if ( state == GREATER ) {
+			//first is greater than second item -> exchange it. Sorting is from less to great.
 #if DIAG
-				wprintf(L"Vymenuji\n");
+				wprintf(L"Changing\n");
 #endif
-				zmena = true;
+				changeFlag = true;
 
-				b->nasledujici = c->nasledujici;
-				c->nasledujici = b;
-				a->nasledujici = c;
+				b->next = c->next;
+				c->next = b;
+				a->next = c;
 				
-				c = b->nasledujici;
-				a = a->nasledujici;
-			} else {
-			 //prvni je mensi jak druhy
-		  	//nastaveni ukazatelu na dalsi polozky
-				a = a->nasledujici;
-				b = b->nasledujici;
-				c = c->nasledujici;
+				c = b->next;
+				a = a->next;
+			} else { //first is less than second item
+		  		//set pointer to next item
+				a = a->next;
+				b = b->next;
+				c = c->next;
 			}
 		}	
 	}
 }
 
-int nacti_radek(FILE* fr, Tseznam* seznam, Tstring* str){
-/*Funkce nacte cely radek do jednorozmerneho pole wcharu. Specialne hlida znaky
-CH a ch. Vraci bud CHYBA_MALLOC nebo EXIT_SUCCESS.*/
+/* Read one line to wchar array. Specifically monitors characters: "CH" and "ch".
+Return 0 == EXIT_SUCCESS or ERR_MALLOC.*/
+int readLine(FILE* fr, Tlist* list, Tstring* str){
 
-	//Tpolozka polozka;
-	wint_t znak;
-	int stav = 0;
-	bool priznak_c = false;
-	bool priznak_C = false;
+	wint_t character;
+	int state = 0;
+	bool flag_c = false;
+	bool flag_C = false;
 	int error;
 
-	stav = inicializuj_string(str);
+	state = allocString(str);
 
-	if ( stav == CHYBA_MALLOC )	{
-		zpracuj_chybu(CHYBA_MALLOC, seznam, fr);
-		return CHYBA;
+	if ( state == ERR_MALLOC )	{
+		processError(ERROR_MALLOC, list, fr);
+		return ERR;
 	}
 
-	while ( (znak = fgetwc(fr)) != L'\n' ) {//Prochazime jeden radek v souboru
+	while ( (character = fgetwc(fr)) != L'\n' ) { //iterate throught one line in file
 
 		error = errno;
 
 		if ( error == EILSEQ ) {
-			free(str->retezec);
-			zpracuj_chybu(CHYBA, seznam, fr);
-			perror("Chyba funkce fgetwc");
-			return CHYBA;
+			free(str->string);
+			processError(ERR, list, fr);
+			perror("Error function fgetwc.");
+			return ERR;
 		}
 
-		if ( znak == WEOF )	{//konec souboru
-			free(str->retezec);
+		if ( character == WEOF ){		//end of file
+			free(str->string);
 			return EOF;
-		} else if ( znak == L'c' ) {// c
-			priznak_c = true;
+		} else if ( character == L'c' ) {// c
+			flag_c = true;
 			continue;
-		} else if ( znak == L'C' ) {// C
-			priznak_C = true;
+		} else if ( character == L'C' ) {// C
+			flag_C = true;
 			continue;
 		}
 
-		if ( priznak_c == true && znak == L'h' ) {// ch
-			znak = ZNAK_ch;
-			priznak_c = false;
-		} else if ( priznak_C == true ) {// C
-			if ( znak == L'h' )	{// Ch
-				znak = ZNAK_Ch;
-				priznak_C = false;
-			} else if ( znak == L'H' ) {// CH
-				znak = ZNAK_CH;
-				priznak_C = false;
+		if ( flag_c == true && character == L'h' ) {// ch
+			character = CHAR_ch;
+			flag_c = false;
+		} else if ( flag_C == true ) {// C
+			if ( character == L'h' )	{// Ch
+				character = CHAR_Ch;
+				flag_C = false;
+			} else if ( character == L'H' ) {// CH
+				character = CHAR_CH;
+				flag_C = false;
 			}
 		}
 
-		stav = 0;
+		state = 0;
 
-		/*Pokud jeden z priznaku je true, znamena to ze za 'c' nebo 'C'
-		 neprislo 'h'.Tzn. ze musime vlozit 'c' nebo 'C' a znak, ktery jde po
-		 nem se vlozi az za podminkou. Nebo se redukuje vice mezer na jednu.*/
-		if ( priznak_c == true ) {
-			stav = pridej_znak(L'c', str);
-			priznak_c = false;
-		} else if ( priznak_C == true ) {
-			stav = pridej_znak(L'C', str);
-			priznak_C = false;
+		/* If one of Flags is true, it meanings that behind 'c' or 'C' not comming 'h'.
+		This means, put 'c' or 'C' and next character after 'c' or 'C'.*/
+		if ( flag_c == true ) {
+			state = addChar(L'c', str);
+			flag_c = false;
+		} else if ( flag_C == true ) {
+			state = addChar(L'C', str);
+			flag_C = false;
 		}
 		
-		stav = pridej_znak(znak, str);
+		state = addChar(character, str);
 
-		if ( stav == CHYBA_MALLOC ) {
-			zpracuj_chybu(CHYBA_MALLOC, seznam, fr);
-			return CHYBA;
+		if ( state == ERR_MALLOC ) {
+			processError(ERROR_MALLOC, list, fr);
+			return ERR;
 		}
 	}
 
-	/*Zde se osetruje pripad, kdy jsme ukoncili radek, ale znak 'C' nebo 'c' 
-	 nebo mezera zustal nezapsat, protoze cekal, zda dalsim znakem nebude 'H'
-	 nebo 'h'.*/
-	if ( priznak_c == true )
-		stav = pridej_znak(L'c', str);
-	else if ( priznak_C == true )
-		stav = pridej_znak(L'C', str);
+	/*Line is end, but 'c' or 'C' are still not write, because algorithm waiting
+	for 'h' or 'H'.*/
+	if ( flag_c == true )
+		state = addChar(L'c', str);
+	else if ( flag_C == true )
+		state = addChar(L'C', str);
 
-	stav = 0;
+	state = 0;
 
-	if ( stav == CHYBA_MALLOC ) {
-		zpracuj_chybu(CHYBA_MALLOC, seznam, fr);
-		return CHYBA;
+	if ( state == ERR_MALLOC ) {
+		processError(ERROR_MALLOC, list, fr);
+		return ERR;
 	}
 #if DIAG
-	wprintf(L"Alokovano %d, delka pole %d\n", str->alok_vel, str->delka);
+	wprintf(L"Allocate %d, length array %d\n", str->size, str->length);
 #endif
-	stav = 0;
-	stav = orizni_pole(str);
+	state = 0;
+	state = alignArray(str);
 #if DIAG
-	wprintf(L"NEW: \tAlokovano %d, delka pole %d\n", str->alok_vel, str->delka);
+	wprintf(L"NEW: \tAllocate %d, length array %d\n", str->size, str->length);
 #endif
 
-	if ( stav == CHYBA_MALLOC ) {
-		zpracuj_chybu(CHYBA_MALLOC, seznam, fr);
-		return CHYBA;
+	if ( state == ERR_MALLOC ) {
+		processError(ERROR_MALLOC, list, fr);
+		return ERR;
 	}
 
 	return EXIT_SUCCESS;
 }
 
-int nacti_a_serad_seznam(char soubor[], Tseznam* s, int usort){
-/*Obalovaci funkce, ve funkci se v cyklu nacitaji radky. Kazdy radek je v jine
-polozce. Ihned se vola funkce zarad, ktera polozku zaradi na spravne misto dle 
-normy.*/
+/*Wrapping function.*/
+int readAndSortList(char file[], Tlist* s, int usort){
 
 	FILE* fr;
-	Tpolozka polozka;
+	Titem item;
 	Tstring str;
 
-	int navrat_hodnota = 0;
+	int returnValue = 0;
 
-	if ( (otevri_soubor(&fr,soubor,"r")) == CHYBA_SOUBOR ) {
-		zpracuj_chybu(CHYBA_SOUBOR, NULL, NULL);
-		return CHYBA;
+	if ( (openFile(&fr,file,"r")) == ERR_FILE ) {
+		processError(ERROR_FILE, NULL, NULL);
+		return ERR;
 	}
 
-	while( navrat_hodnota != EOF ) {
-		navrat_hodnota = nacti_radek(fr, s, &str);
+	while( returnValue != EOF ) {
+		returnValue = readLine(fr, s, &str);
 
-		if ( navrat_hodnota == CHYBA )
-			return CHYBA;
-		else if ( navrat_hodnota == EOF )
+		if ( returnValue == ERR )
+			return ERR;
+		else if ( returnValue == EOF )
 			break;
 
-		navrat_hodnota = 0;
-		navrat_hodnota = vloz_prvni(polozka, s, str);
+		returnValue = 0;
+		returnValue = putFirst(item, s, str);
 
-		if ( navrat_hodnota == CHYBA_MALLOC ) {
-			free(str.retezec);
-			zpracuj_chybu(CHYBA_MALLOC, s, fr);
-			return CHYBA;
+		if ( returnValue == ERR_MALLOC ) {
+			free(str.string);
+			processError(ERROR_MALLOC, s, fr);
+			return ERR;
 		}
 
 		if ( usort == USORT )
-			zarad(s,USORT);
+			classItem(s,USORT);
 		else
-			zarad(s,0);
+			classItem(s,0);
 	}
 	
-	if ( (zavri_soubor(fr)) == CHYBA_SOUBOR ) {
-		zpracuj_chybu(CHYBA_SOUBOR, NULL, fr);
-		return CHYBA;
+	if ( (closeFile(fr)) == ERR_FILE ) {
+		processError(ERROR_FILE, NULL, fr);
+		return ERR;
 	}
 
 	return EXIT_SUCCESS;
 }
 
-void vymaz_seznam(Tseznam* seznam){
-/*Funkce vymaze seznam a to tak, ze nejdriv uvolni jednorozmerne pole, na ktere
-ukazuje polozka->uk_na_jmeno a po-te se postara o ukazatele okolo ruseneho prvku
-a ruseny prvek zrusi.*/
+/* Remove list and free all alocations. First is release one-dimensional array
+which pointer item->pointerToName and after release item.*/
+void removeList(Tlist* list){
 
-	if ( seznam->prvni == NULL || seznam == NULL )
+	if ( list->first == NULL || list == NULL )
 		return; 
 
-	assert( seznam != NULL );
-	assert( seznam->prvni != NULL ); //musi byt first
+	assert( list != NULL );
+	assert( list->first != NULL ); //must be first
 
-	while( seznam->prvni != NULL ) {//dokud se neprojde cely seznam
+	while( list->first != NULL ) {//until iterate throught whole list
 
-		Tpolozka* polozka;
+		Titem* item;
 
-		/*preklenuti ukazatelu, rusim prvni prvek, tzn. hlavicka bude ukazovat
-		 tam kam ukazuje rusena(prva) polozka*/
-
-		polozka = seznam->prvni;
-		seznam->prvni = polozka->nasledujici;
+		/*edit pointers; remove first item, so header will be point to there,
+		where point removing(first) item*/
+		item = list->first;
+		list->first = item->next;
 #if DIAG
-		wprintf(L"Uvolnuji: %ls\n",polozka->uk_na_jmeno );
+		wprintf(L"Free: %ls\n",item->pointerToName );
 #endif
-		free(polozka->uk_na_jmeno); //uvolneni naalokovaneho radku
-		free(polozka);	//uvolneni polozky z pameti
+		free(item->pointerToName); 	//free allocated line
+		free(item);					//free item from list
 	}
 }
 
-void zpracuj_chybu(int co, Tseznam* s, FILE* f) {
-/*Funkce, ktera zpracovava chyby. Stara se o uvolneni pameti, zavreni souboru
-a vypisu chyby.*/
+/*Process error -> free memory -> close file descriptor.*/
+void processError(int what, Tlist* s, FILE* f) {
 
-	//uvolneni zdroju:
-	switch ( co ) {
-		case CHYBA:
-		case CHYBA_MALLOC:
-			if ( s->prvni != NULL )
-				vymaz_seznam(s);
+	switch ( what ) {
+		case ERR:
+		case ERR_MALLOC:
+			if ( s->first != NULL )
+				removeList(s);
 
-		case CHYBA_SOUBOR:
+		case ERR_FILE:
 			if ( f != NULL )
 				fclose(f);
 	}
 
-	//vypis chyby:
-	if ( co == CHYBA_MALLOC )
-		fprintf(stderr, "%s",chybove_zpravy[ERR_MALLOC]);
-	else if ( co == CHYBA_SOUBOR )
-		fprintf(stderr, "%s",chybove_zpravy[ERR_SOUBOR]);
+	//write error to stdout:
+	if ( what == ERR_MALLOC )
+		fprintf(stderr, "%s",errorMessages[ERROR_MALLOC]);
+	else if ( what == ERR_FILE )
+		fprintf(stderr, "%s",errorMessages[ERROR_FILE]);
 }
 
-int otevri_soubor(FILE** popisovac, char* nazev,char* rezim){
-//Funkce otevre soubor. V pripade uspechu vraci 0, jinak chybu.
+int openFile(FILE** fd, char* name, char* mode){
 
-	if ( (*popisovac = fopen(nazev,rezim)) == NULL )
-		return CHYBA_SOUBOR;
+	if ( (*fd = fopen(name, mode)) == NULL )
+		return ERR_FILE;
 	return EXIT_SUCCESS;
 }
 
-int zavri_soubor(FILE* popisovac){
-//Funkce zavre soubor. V pripade uspechu vraci 0, jinak chybu.
+int closeFile(FILE* fd){
 
-	if ( (fclose(popisovac)) == EOF)
-		return CHYBA_SOUBOR;
+	if ( (fclose(fd)) == EOF)
+		return ERR_FILE;
 
 	return EXIT_SUCCESS;
 }
 
-int vypis_seznam(char* argv, Tseznam* s){
-/*Funkce vypise seznam s tim ze osetruje znaky Ch a ch. Funkce konci bud chybou
-souboru nebo 0.*/
+/*Write list with prevent with "Ch" and "ch".*/
+int writeList(char* argv, Tlist* s){
 
 #if DIAG
-	wprintf(L"Vypisuji seznam\n");
+	wprintf(L"Writing list\n");
 #endif
 
 	FILE* fw;
 	int i = 0;
 
 	if ( (fw = fopen(argv, "w")) == NULL ) {
-		zpracuj_chybu(CHYBA_SOUBOR, NULL, fw);
-		return CHYBA;
+		processError(ERROR_FILE, NULL, fw);
+		return ERR;
 	}
 
-	for ( Tpolozka* pom = s->prvni; pom != NULL; pom = pom->nasledujici ) {
-	//Prochazime kazdym jmenem
+	for ( Titem* pom = s->first; pom != NULL; pom = pom->next ) { 
 
 		i = 0;
 
-		while ( *(pom->uk_na_jmeno+i) != '\0' )	{
-		//Projdeme kazdy radek a vypisujeme po znacich
-			if ( *(pom->uk_na_jmeno+i) == ZNAK_ch ) //ch
+		while ( *(pom->pointerToName+i) != '\0' )	{
+		//iterate throught lines and write throught characters
+			if ( *(pom->pointerToName+i) == CHAR_ch ) //ch
 				fwprintf(fw, L"ch");
-			else if ( *(pom->uk_na_jmeno+i) == ZNAK_Ch ) //Ch
+			else if ( *(pom->pointerToName+i) == CHAR_Ch ) //Ch
 				fwprintf(fw, L"Ch");
-			else if ( *(pom->uk_na_jmeno+i) == ZNAK_CH ) //CH
+			else if ( *(pom->pointerToName+i) == CHAR_CH ) //CH
 				fwprintf(fw, L"CH");
 			else
-				fwprintf(fw, L"%lc", *(pom->uk_na_jmeno+i));
+				fwprintf(fw, L"%lc", *(pom->pointerToName+i));
 			i++;
 		}
 		fwprintf(fw, L"\n");
 	}
 
-	if ( (zavri_soubor(fw)) == CHYBA_SOUBOR ) {
-		zpracuj_chybu(CHYBA_SOUBOR, NULL, fw);
-		return CHYBA;
+	if ( (closeFile(fw)) == ERR_FILE ) {
+		processError(ERROR_FILE, NULL, fw);
+		return ERR;
 	}
 
 	return EXIT_SUCCESS;
@@ -814,66 +797,62 @@ souboru nebo 0.*/
 //**************************************MAIN***********************************/
 
 int main( int argc, char* argv[] ){
-/*HLAVNI FUNKCE. Vraci 0 v pripade uspechu. Jinak chybu.
-argc je pocet parametru
-argv[] je pole parametru
-*/
-	//srand(time(NULL)); pro test
 
-	int stav_param; //slouzi pro navratovou hodnotu z funkce:
+	//DEBUG:
+	//srand(time(NULL));
 
-	stav_param = zkontroluj_parametry(argc, argv);
+	int stateParam; //return value
 
-	if ( stav_param == CHYBA_PARAM ) {
-	//Chyba parametru
-		fprintf(stderr,"%s", chybove_zpravy[ERR_PARAM]);
-		printf("%s", NAPOVEDA);
+	stateParam = checkParams(argc, argv);
+
+	if ( stateParam == ERR_PARAM ) { //Params fail
+		fprintf(stderr,"%s", errorMessages[ERROR_PARAM]);
+		printf("%s", HELP);
 		return EXIT_FAILURE;
-	} else if ( stav_param == PARAM_NAPOVEDA ){
-		//Napoveda
-		printf("%s", NAPOVEDA);
+	} else if ( stateParam == PARAM_HELP ){ //Help
+		printf("%s", HELP);
 		return EXIT_SUCCESS;
 	} else {
-		int stav = 0;
-		Tseznam s;
-		s.prvni = NULL;
+		int state = 0;
+		Tlist s;
+		s.first = NULL;
 
-		if ( stav_param == PARAM_LOCALE || stav_param == PARAM_LOCALE_USORT ) {
-			if ( (setlocale(LC_CTYPE,argv[2])) == NULL ) {//Chyba setlocale
-				fprintf(stderr,"%s", chybove_zpravy[ERR_LOCALE]);
+		if ( stateParam == PARAM_LOCALE || stateParam == PARAM_LOCALE_USORT ) {
+			if ( (setlocale(LC_CTYPE,argv[2])) == NULL ) {//setlocale fail
+				fprintf(stderr,"%s", errorMessages[ERROR_LOCALE]);
 				return EXIT_FAILURE;
 			}
 
-			if ( stav_param == PARAM_LOCALE_USORT )
-				stav = nacti_a_serad_seznam(argv[3], &s, USORT);
+			if ( stateParam == PARAM_LOCALE_USORT )
+				state = readAndSortList(argv[3], &s, USORT);
 			else
-				stav = nacti_a_serad_seznam(argv[3], &s, 0);
-		} else if ( stav_param == PARAM_BEZ_LOCALE || stav_param == PARAM_USORT ) {
-			if ( (setlocale(LC_CTYPE,"")) == NULL )	{//Chyba setlocale
-				fprintf(stderr,"%s", chybove_zpravy[ERR_LOCALE]);
+				state = readAndSortList(argv[3], &s, 0);
+		} else if ( stateParam == PARAM_WITHOUT_LOCALE || stateParam == PARAM_USORT ) {
+			if ( (setlocale(LC_CTYPE,"")) == NULL )	{//setlocale fail
+				fprintf(stderr,"%s", errorMessages[ERROR_LOCALE]);
 				return EXIT_FAILURE;
 			}
 
-			if ( stav_param == PARAM_USORT )
-				stav = nacti_a_serad_seznam(argv[1], &s, USORT);
+			if ( stateParam == PARAM_USORT )
+				state = readAndSortList(argv[1], &s, USORT);
 			else
-				stav = nacti_a_serad_seznam(argv[1], &s, 0);
+				state = readAndSortList(argv[1], &s, 0);
 		}
 
-		if ( stav == CHYBA )
+		if ( state == ERR )
 			return EXIT_FAILURE;
 
-#if DIAG //Kontrolni vypis jednosmerneho seznamu:
-		for ( Tpolozka* tmp = s.prvni; tmp != NULL; tmp = tmp->nasledujici )
-			wprintf(L"KONTROLA(main): %ls\n", tmp->uk_na_jmeno);
+#if DIAG //show list
+		for ( Titem* tmp = s.first; tmp != NULL; tmp = tmp->next )
+			wprintf(L"Show list(from main): %ls\n", tmp->pointerToName);
 #endif
 
-		if ( stav_param == PARAM_LOCALE || stav_param == PARAM_LOCALE_USORT )
-			vypis_seznam(argv[4], &s);
+		if ( stateParam == PARAM_LOCALE || stateParam == PARAM_LOCALE_USORT )
+			writeList(argv[4], &s);
 		else
-			vypis_seznam(argv[2], &s);
+			writeList(argv[2], &s);
 
-		vymaz_seznam(&s);
+		removeList(&s);
 
 	}
 
